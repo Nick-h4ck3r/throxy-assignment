@@ -6,8 +6,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-fira-code);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -116,7 +116,57 @@
   * {
     @apply border-border outline-ring/50;
   }
+  
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    font-variant-ligatures: common-ligatures;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Enhanced typography */
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    line-height: 1.2;
+  }
+
+  h1 {
+    font-weight: 800;
+    letter-spacing: -0.04em;
+  }
+
+  h2 {
+    font-weight: 700;
+    letter-spacing: -0.03em;
+  }
+
+  h3 {
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  /* Modern button typography */
+  button {
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+
+  /* Code and monospace */
+  code, pre {
+    font-family: var(--font-fira-code);
+    font-feature-settings: "liga" 1, "calt" 1;
+  }
+
+  /* Improved readability */
+  p {
+    line-height: 1.7;
+  }
+
+  /* Modern link styles */
+  a {
+    font-weight: 500;
   }
 }
