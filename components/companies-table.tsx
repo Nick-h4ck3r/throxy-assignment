@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Search,
   Filter,
@@ -39,16 +39,27 @@ export default function CompaniesTable({
   const [countries, setCountries] = useState<string[]>([]);
   const [employeeSizes, setEmployeeSizes] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchLoading, setSearchLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Filters
   const [selectedCountry, setSelectedCountry] = useState("");
   const [selectedEmployeeSize, setSelectedEmployeeSize] = useState("");
   const [domainFilter, setDomainFilter] = useState("");
+  const [debouncedDomainFilter, setDebouncedDomainFilter] = useState("");
   const [showFilters, setShowFilters] = useState(false);
 
   // Sorting
   const [sortOrder, setSortOrder] = useState<SortOrder>("none");
+
+  // Debounce domain filter
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedDomainFilter(domainFilter);
+    }, 500); // 500ms delay
+
+    return () => clearTimeout(timer);
+  }, [domainFilter]);
 
   // Sort companies based on current sort order
   const sortedCompanies = useMemo(() => {
@@ -83,21 +94,27 @@ export default function CompaniesTable({
   };
 
   // Fetch companies
-  const fetchCompanies = async () => {
+  const fetchCompanies = async (isInitialLoad = false) => {
     try {
-      setLoading(true);
+      if (isInitialLoad) {
+        setLoading(true);
+      } else {
+        setSearchLoading(true);
+      }
+
       const params = new URLSearchParams();
 
       if (selectedCountry) params.append("country", selectedCountry);
       if (selectedEmployeeSize)
         params.append("employee_size", selectedEmployeeSize);
-      if (domainFilter) params.append("domain", domainFilter);
+      if (debouncedDomainFilter) params.append("domain", debouncedDomainFilter);
 
       const response = await fetch(`/api/companies?${params.toString()}`);
       const result = await response.json();
 
       if (result.success) {
         setCompanies(result.data);
+        setError(null);
       } else {
         setError(result.error || "Failed to fetch companies");
       }
@@ -106,7 +123,11 @@ export default function CompaniesTable({
         err instanceof Error ? err.message : "Failed to fetch companies"
       );
     } finally {
-      setLoading(false);
+      if (isInitialLoad) {
+        setLoading(false);
+      } else {
+        setSearchLoading(false);
+      }
     }
   };
 
@@ -130,8 +151,19 @@ export default function CompaniesTable({
 
   // Load data on mount and when filters change
   useEffect(() => {
-    fetchCompanies();
-  }, [selectedCountry, selectedEmployeeSize, domainFilter, refreshTrigger]);
+    // Check if this is the initial load (no filters set and refreshTrigger is 0 or first load)
+    const isInitialLoad =
+      !selectedCountry &&
+      !selectedEmployeeSize &&
+      !debouncedDomainFilter &&
+      companies.length === 0;
+    fetchCompanies(isInitialLoad);
+  }, [
+    selectedCountry,
+    selectedEmployeeSize,
+    debouncedDomainFilter,
+    refreshTrigger,
+  ]);
 
   // Load filter options on mount
   useEffect(() => {
@@ -143,11 +175,12 @@ export default function CompaniesTable({
     setSelectedCountry("");
     setSelectedEmployeeSize("");
     setDomainFilter("");
+    setDebouncedDomainFilter("");
   };
 
   // Check if filters are active
   const hasActiveFilters =
-    selectedCountry || selectedEmployeeSize || domainFilter;
+    selectedCountry || selectedEmployeeSize || debouncedDomainFilter;
 
   if (loading) {
     return (
@@ -260,7 +293,7 @@ export default function CompaniesTable({
                 Domain
               </label>
               <div className="relative">
-                <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <input
                   type="text"
                   value={domainFilter}
@@ -286,15 +319,86 @@ export default function CompaniesTable({
       )}
 
       {/* Table */}
-      {companies.length === 0 ? (
-        <div className="text-center py-12">
-          <Building className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-600">No companies found</p>
-          {hasActiveFilters && (
-            <p className="text-sm text-gray-500 mt-2">
-              Try adjusting your filters or upload a CSV file
-            </p>
-          )}
+      {searchLoading ? (
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <div className="flex items-center space-x-2">
+                      <span>Company</span>
+                      <button
+                        onClick={toggleSort}
+                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                        title={`Sort ${
+                          sortOrder === "none"
+                            ? "A-Z"
+                            : sortOrder === "asc"
+                            ? "Z-A"
+                            : "Default"
+                        }`}
+                      >
+                        {getSortIcon()}
+                      </button>
+                    </div>
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Domain
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Location
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Employee Size
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {/* Skeleton rows */}
+                {Array.from({ length: 5 }).map((_, index) => (
+                  <tr key={`skeleton-${index}`} className="animate-pulse">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="h-5 w-5 bg-gray-200 rounded mr-3"></div>
+                        <div className="h-4 bg-gray-200 rounded w-32"></div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="h-4 w-4 bg-gray-200 rounded mr-2"></div>
+                        <div className="h-4 bg-gray-200 rounded w-24"></div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="h-4 w-4 bg-gray-200 rounded mr-2"></div>
+                        <div className="h-4 bg-gray-200 rounded w-28"></div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="h-4 w-4 bg-gray-200 rounded mr-2"></div>
+                        <div className="h-4 bg-gray-200 rounded w-20"></div>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : companies.length === 0 ? (
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="text-center py-12">
+            <Building className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-600">No companies found</p>
+            {hasActiveFilters && (
+              <p className="text-sm text-gray-500 mt-2">
+                Try adjusting your filters or upload a CSV file
+              </p>
+            )}
+          </div>
         </div>
       ) : (
         <div className="bg-white rounded-lg shadow overflow-hidden">
