@@ -114,11 +114,11 @@ export default function Home() {
                   <FileText className="h-6 w-6 text-blue-600" />
                 </div>
                 <h4 className="font-medium text-gray-900 mb-2">
-                  Smart CSV Processing
+                  Pure AI Data Cleaning
                 </h4>
                 <p className="text-sm text-gray-600">
-                  Automatically clean and normalize messy CSV data with
-                  intelligent pattern recognition and data validation.
+                  Uses AI to intelligently clean and standardize data with zero
+                  hardcoded rules.
                 </p>
               </div>
 
@@ -161,6 +161,10 @@ export default function Home() {
                   Data Processing Pipeline
                 </h4>
                 <ul className="text-sm text-blue-800 space-y-1">
+                  <li>• Pure AI cleaning with intelligent data processing</li>
+                  <li>
+                    • Zero hardcoded rules - AI handles all data transformation
+                  </li>
                   <li>
                     • Country names normalized to standard format (e.g., "us" →
                     "United States")

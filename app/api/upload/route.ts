@@ -55,18 +55,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Clean and normalize data
-    const cleanedData = cleanCompanyData(rawData);
+    // Prepare raw data for AI processing
+    const rawDataForAI = cleanCompanyData(rawData);
 
-    if (cleanedData.length === 0) {
+    if (rawDataForAI.length === 0) {
       return NextResponse.json(
-        { error: "No valid companies found after data cleaning" },
+        { error: "No valid companies found in CSV data" },
         { status: 400 }
       );
     }
 
-    // Enrich data (optional AI enhancement)
-    const enrichedData = await enrichCompanyData(cleanedData);
+    // Process data with AI enrichment
+    const enrichedData = await enrichCompanyData(rawDataForAI);
 
     // Insert data into database
     const insertedCompanies = await companyQueries.upsertCompanies(
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
     );
 
     // Get cleaning statistics
-    const stats = getCleaningStats(rawData, cleanedData);
+    const stats = getCleaningStats(rawData, enrichedData);
 
     return NextResponse.json({
       success: true,
