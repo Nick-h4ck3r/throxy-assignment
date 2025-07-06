@@ -9,6 +9,9 @@ import {
   MapPin,
   Users,
   Globe,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 
 interface Company {
@@ -27,6 +30,8 @@ interface CompaniesTableProps {
   refreshTrigger?: number;
 }
 
+type SortOrder = "asc" | "desc" | "none";
+
 export default function CompaniesTable({
   refreshTrigger = 0,
 }: CompaniesTableProps) {
@@ -41,6 +46,41 @@ export default function CompaniesTable({
   const [selectedEmployeeSize, setSelectedEmployeeSize] = useState("");
   const [domainFilter, setDomainFilter] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+
+  // Sorting
+  const [sortOrder, setSortOrder] = useState<SortOrder>("none");
+
+  // Sort companies based on current sort order
+  const sortedCompanies = useMemo(() => {
+    if (sortOrder === "none") return companies;
+
+    return [...companies].sort((a, b) => {
+      const nameA = a.company_name.toLowerCase();
+      const nameB = b.company_name.toLowerCase();
+
+      if (sortOrder === "asc") {
+        return nameA.localeCompare(nameB);
+      } else {
+        return nameB.localeCompare(nameA);
+      }
+    });
+  }, [companies, sortOrder]);
+
+  // Toggle sort order
+  const toggleSort = () => {
+    setSortOrder((current) => {
+      if (current === "none") return "asc";
+      if (current === "asc") return "desc";
+      return "none";
+    });
+  };
+
+  // Get sort icon based on current sort order
+  const getSortIcon = () => {
+    if (sortOrder === "asc") return <ArrowUp className="h-4 w-4" />;
+    if (sortOrder === "desc") return <ArrowDown className="h-4 w-4" />;
+    return <ArrowUpDown className="h-4 w-4" />;
+  };
 
   // Fetch companies
   const fetchCompanies = async () => {
@@ -138,16 +178,38 @@ export default function CompaniesTable({
           <p className="text-sm text-gray-600">
             {companies.length} companies found
             {hasActiveFilters && " (filtered)"}
+            {sortOrder !== "none" && (
+              <span className="ml-1">
+                • Sorted {sortOrder === "asc" ? "A-Z" : "Z-A"}
+              </span>
+            )}
           </p>
         </div>
 
-        <button
-          onClick={() => setShowFilters(!showFilters)}
-          className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <Filter className="h-4 w-4" />
-          <span>Filters</span>
-        </button>
+        <div className="flex items-center space-x-3">
+          <button
+            onClick={toggleSort}
+            className="flex items-center space-x-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+            title={`Sort ${
+              sortOrder === "none"
+                ? "A-Z"
+                : sortOrder === "asc"
+                ? "Z-A"
+                : "Default"
+            }`}
+          >
+            {getSortIcon()}
+            <span>Sort</span>
+          </button>
+
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Filter className="h-4 w-4" />
+            <span>Filters</span>
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -241,7 +303,22 @@ export default function CompaniesTable({
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Company
+                    <div className="flex items-center space-x-2">
+                      <span>Company</span>
+                      <button
+                        onClick={toggleSort}
+                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                        title={`Sort ${
+                          sortOrder === "none"
+                            ? "A-Z"
+                            : sortOrder === "asc"
+                            ? "Z-A"
+                            : "Default"
+                        }`}
+                      >
+                        {getSortIcon()}
+                      </button>
+                    </div>
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Domain
@@ -255,7 +332,7 @@ export default function CompaniesTable({
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {companies.map((company) => (
+                {sortedCompanies.map((company) => (
                   <tr key={company.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">

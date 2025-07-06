@@ -31,21 +31,28 @@ Employee Size Bucketing:
 - "10" → "11-50"
 - "6" → "1-10"
 
-Domain Cleaning:
-- "apple. com" → "apple.com"
-- "net flix.com" → "netflix.com"
-- "stripecom" → "stripe.com"
-- "microsoft .com" → "microsoft.com"
-- "figma.  com" → "figma.com"
-- "doordash com" → "doordash.com"
-- "airbnb" → "airbnb.com"
+Domain Cleaning (ONLY clean malformed domains, preserve valid ones):
+- "apple. com" → "apple.com" (remove spaces)
+- "net flix.com" → "netflix.com" (remove spaces)
+- "stripecom" → "stripe.com" (add missing dot)
+- "microsoft .com" → "microsoft.com" (remove spaces)
+- "figma.  com" → "figma.com" (remove extra spaces)
+- "doordash com" → "doordash.com" (add missing dot)
+- "airbnb" → "airbnb.com" (add missing extension)
 
-Domain Generation (when missing):
-- "Apple Inc." → "apple.com"
-- "Microsoft Corporation" → "microsoft.com"
-- "Tesla Inc." → "tesla.com"
-- "Netflix" → "netflix.com"
-- "Stripe" → "stripe.com"
+Domain Preservation (DO NOT change valid domains):
+- "zoom.us" → "zoom.us" (keep as-is, valid domain)
+- "github.io" → "github.io" (keep as-is, valid domain)
+- "example.org" → "example.org" (keep as-is, valid domain)
+- "company.net" → "company.net" (keep as-is, valid domain)
+- "service.co.uk" → "service.co.uk" (keep as-is, valid domain)
+
+Domain Generation (ONLY when missing or completely invalid):
+- "" → "apple.com" (for Apple Inc.)
+- "" → "microsoft.com" (for Microsoft Corporation)
+- "" → "tesla.com" (for Tesla Inc.)
+- "" → "netflix.com" (for Netflix)
+- "" → "stripe.com" (for Stripe)
 
 City Standardization:
 - "Cupertino, CA, USA" → "Cupertino"
@@ -122,23 +129,30 @@ Please return a JSON object with the following structure:
   "reasoning": "brief explanation of changes made"
 }
 
-CRITICAL RULES:
-1. DOMAIN IS MANDATORY: You must ALWAYS provide a domain. If the domain is missing, invalid, or unclear, generate a logical domain based on the company name (e.g., "Apple Inc." → "apple.com")
-2. Domain format: lowercase, no spaces, must end with .com, .org, .net, etc.
-3. If employee size cannot be determined, return empty string
-4. If country cannot be determined, return empty string
-5. Always return valid JSON
-6. Confidence should be between 0 and 1
-7. Never return an empty domain - always generate one if needed
+CRITICAL DOMAIN RULES:
+1. PRESERVE VALID DOMAINS: If the domain is already valid (like "zoom.us", "github.io", "example.org"), keep it exactly as-is
+2. CLEAN MALFORMED DOMAINS: Only fix obvious formatting issues (spaces, missing dots, missing extensions)
+3. GENERATE ONLY WHEN MISSING: Only generate new domains when the domain field is empty or completely invalid
+4. Domain format: lowercase, no spaces, must have valid extension (.com, .org, .net, .us, .io, .co.uk, etc.)
+5. If employee size cannot be determined, return empty string
+6. If country cannot be determined, return empty string
+7. Always return valid JSON
+8. Confidence should be between 0 and 1
+9. Never return an empty domain - always provide one
+
+DOMAIN DECISION LOGIC:
+- If domain has valid extension (.com, .org, .net, .us, .io, etc.) → PRESERVE IT
+- If domain has formatting issues (spaces, missing dots) → CLEAN IT
+- If domain is empty or invalid → GENERATE NEW ONE
 `;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-3.5-turbo",
       messages: [
         {
           role: "system",
           content:
-            "You are a data cleaning expert. Always respond with valid JSON only. NEVER return an empty domain - always generate a logical domain for every company.",
+            "You are a data cleaning expert. Always respond with valid JSON only. PRESERVE valid domains like zoom.us, github.io - do not change them to .com. Only clean malformed domains or generate new ones when missing.",
         },
         {
           role: "user",
