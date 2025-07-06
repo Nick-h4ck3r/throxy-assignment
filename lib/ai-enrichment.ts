@@ -40,6 +40,13 @@ Domain Cleaning:
 - "doordash com" → "doordash.com"
 - "airbnb" → "airbnb.com"
 
+Domain Generation (when missing):
+- "Apple Inc." → "apple.com"
+- "Microsoft Corporation" → "microsoft.com"
+- "Tesla Inc." → "tesla.com"
+- "Netflix" → "netflix.com"
+- "Stripe" → "stripe.com"
+
 City Standardization:
 - "Cupertino, CA, USA" → "Cupertino"
 - "Mountain View, California" → "Mountain View"
@@ -71,6 +78,21 @@ interface AIEnrichmentResult {
   reasoning: string;
 }
 
+// Helper function to generate a fallback domain from company name
+function generateFallbackDomain(companyName: string): string {
+  if (!companyName) return "unknown-company.com";
+
+  // Clean the company name and create a domain
+  const cleanName = companyName
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, "") // Remove special characters
+    .replace(/\s+/g, "-") // Replace spaces with hyphens
+    .replace(/^-+|-+$/g, "") // Remove leading/trailing hyphens
+    .replace(/-+/g, "-"); // Replace multiple hyphens with single
+
+  return `${cleanName}.com`;
+}
+
 export async function enrichCompanyWithAI(
   rawData: RawCompanyRow
 ): Promise<CleanedCompanyData> {
@@ -100,12 +122,14 @@ Please return a JSON object with the following structure:
   "reasoning": "brief explanation of changes made"
 }
 
-Rules:
-1. If domain is missing or invalid, return empty string
-2. If employee size cannot be determined, return empty string
-3. If country cannot be determined, return empty string
-4. Always return valid JSON
-5. Confidence should be between 0 and 1
+CRITICAL RULES:
+1. DOMAIN IS MANDATORY: You must ALWAYS provide a domain. If the domain is missing, invalid, or unclear, generate a logical domain based on the company name (e.g., "Apple Inc." → "apple.com")
+2. Domain format: lowercase, no spaces, must end with .com, .org, .net, etc.
+3. If employee size cannot be determined, return empty string
+4. If country cannot be determined, return empty string
+5. Always return valid JSON
+6. Confidence should be between 0 and 1
+7. Never return an empty domain - always generate one if needed
 `;
 
     const completion = await openai.chat.completions.create({
@@ -114,7 +138,7 @@ Rules:
         {
           role: "system",
           content:
-            "You are a data cleaning expert. Always respond with valid JSON only.",
+            "You are a data cleaning expert. Always respond with valid JSON only. NEVER return an empty domain - always generate a logical domain for every company.",
         },
         {
           role: "user",
@@ -143,9 +167,15 @@ Rules:
       throw new Error("AI failed to provide company name");
     }
 
+    // Ensure domain is always provided - generate fallback if needed
+    let domain = aiResult.domain || "";
+    if (!domain || domain.trim() === "") {
+      domain = generateFallbackDomain(aiResult.company_name);
+    }
+
     return {
       company_name: aiResult.company_name,
-      domain: aiResult.domain || "",
+      domain: domain,
       city: aiResult.city || "",
       country: aiResult.country || "",
       employee_size: aiResult.employee_size || "",
@@ -154,10 +184,12 @@ Rules:
   } catch (error) {
     console.error("AI enrichment failed:", error);
 
-    // Minimal fallback - just return the company name
+    // Enhanced fallback - always generate a domain
+    const fallbackDomain = generateFallbackDomain(rawData.company_name || "");
+
     return {
       company_name: rawData.company_name || "",
-      domain: "",
+      domain: fallbackDomain,
       city: "",
       country: "",
       employee_size: "",
@@ -182,10 +214,11 @@ export async function enrichCompaniesWithAI(
         return await enrichCompanyWithAI(row);
       } catch (error) {
         console.error(`Failed to enrich company: ${row.company_name}`, error);
-        // Return minimal fallback - just the company name
+        // Return enhanced fallback - always generate a domain
+        const fallbackDomain = generateFallbackDomain(row.company_name || "");
         return {
           company_name: row.company_name || "",
-          domain: "",
+          domain: fallbackDomain,
           city: "",
           country: "",
           employee_size: "",
